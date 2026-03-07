@@ -1,0 +1,18 @@
+import express from 'express';
+import UserRouter from './Routers/Auth.js';
+import OrgRouter from './Routers/OrgAuth.js';
+import PlanRouter from './Routers/Plan.js';
+import ProductRouter from './Routers/Product.js';
+import cors from 'cors';
+import CampaignRouter from './Routers/Campaign.js';
+import ProspectsRouter from './Routers/Prospects.js';
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use('/user',UserRouter);
+app.use('/org',OrgRouter);
+app.use('/plan',PlanRouter);
+app.use('/product',ProductRouter);
+app.use('/campaigns',CampaignRouter);
+app.use('/prospects',ProspectsRouter);
+app.listen(3000,()=>{console.log("Backend listening")});

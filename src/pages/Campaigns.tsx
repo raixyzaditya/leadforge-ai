@@ -5,6 +5,7 @@ import {
   Tooltip, ResponsiveContainer, AreaChart, Area,
 } from "recharts";
 import axios from "axios";
+import ProspectDrawer from "./ProspectDrawer";
 
 type Campaign = {
   id: string,
@@ -85,6 +86,7 @@ const CampaignPage = () => {
   const [activeProd, setActiveProd] = useState<Product | null>(null);
   const [pros, setPros] = useState<Prospect[]>([]);
   const { id } = useParams();
+  const [drawerProspectId, setDrawerProspectId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [campaignStatus, setCampaignStatus] = useState<"Draft" | "Active" | "Paused">("Active");
@@ -662,7 +664,13 @@ const CampaignPage = () => {
                             </td>
                             <td style={{ padding: "13px 18px", fontSize: 12.5, color: "#9ca3af" }}>{p.last}</td>
                             <td style={{ padding: "13px 18px" }}>
-                              <button className="ghost-btn" style={{ padding: "5px 11px", fontSize: 11.5 }}>View</button>
+                              <button
+                                className="ghost-btn"
+                                style={{ padding: "5px 11px", fontSize: 11.5 }}
+                                onClick={() => setDrawerProspectId(p.id)}  // ← add this
+                              >
+                                View
+                              </button>
                             </td>
                           </tr>
                         );
@@ -816,6 +824,10 @@ const CampaignPage = () => {
           )}
         </div>
       </div>
+      <ProspectDrawer
+        prospectId={drawerProspectId}
+        onClose={() => setDrawerProspectId(null)}
+      />
     </div>
   );
 };

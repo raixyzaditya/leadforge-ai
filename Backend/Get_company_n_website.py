@@ -3,6 +3,7 @@ import os
 import anthropic
 from dotenv import load_dotenv
 
+
 load_dotenv()
 api_key = os.getenv("API")
 client = anthropic.Anthropic(api_key=api_key)

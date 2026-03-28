@@ -23,6 +23,7 @@ import ProductPage from "./pages/Products";
 import CampaignPage from "./pages/Campaigns";
 import CampaignsListPage from "./pages/CampaignsListPage";
 import UploadProcessing from "./pages/UploadProcessing";
+import ReviewPage from "./pages/ReviewPage";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
           <Route path="/products" element={<ProductPage/>}/>
           <Route path="/upload_processing/:jobId/:campId" element={<UploadProcessing/>}/> 
+          <Route path="/review/:campId" element={<ReviewPage/>}/>
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

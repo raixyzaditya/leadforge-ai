@@ -3,13 +3,14 @@ from bs4 import BeautifulSoup
 import trafilatura
 from urllib.parse import urljoin, urlparse
 import tldextract
+import sys
 
 headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
 visited = set()
-MAX_PAGES = 10
+MAX_PAGES = 5
 
 
 def is_internal(base_domain, url):
@@ -86,10 +87,10 @@ def crawl_website(start_url):
 
 if __name__ == "__main__":
 
-    website = "https://technova.com"
+    if len(sys.argv) < 2:
+        print("")
+        sys.exit(0)
+    webiste = sys.argv[1]
+    content = crawl_website(webiste)
 
-    content = crawl_website(website)
-
-    print("\n\nFINAL EXTRACTED TEXT:\n")
-
-    print(content[:5000])
+    print(content[:3000])

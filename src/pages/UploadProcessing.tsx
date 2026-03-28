@@ -37,15 +37,15 @@ const UploadProcessing = () => {
                     clearInterval(interval);
 
                     setTimeout(() => {
-                        navigate(-1);
-                    }, 2000);
+                        navigate(`/review/${campId}`);
+                    }, 1500);
                 }
 
             } catch (e) {
                 console.log(e);
             }
 
-        }, 1500);
+        }, 3000);
 
         return () => clearInterval(interval);
 

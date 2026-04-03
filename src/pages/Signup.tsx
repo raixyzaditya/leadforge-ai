@@ -6,44 +6,73 @@ import { Zap } from "lucide-react";
 import axios from "axios";
 import React, { useState } from "react";
 
-const PORT = 3000
+const PORT = 3000;
+
+const DESIGNATIONS = [
+  "Founder / Co-Founder",
+  "CEO",
+  "Head of Sales",
+  "Sales Manager",
+  "Business Development Manager",
+  "Marketing Manager",
+  "Growth Manager",
+  "Account Executive",
+  "Other",
+];
 
 const Signup = () => {
-  const [userData,setUserData] = useState({
-    "name":'',
-    "email":'',
-    "password":''
+  const [userData, setUserData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    designation: "",
   });
-  const [error,setError] = useState("");
-  const [loading,setLoading] = useState(false);
+  const [selectedDesignation, setSelectedDesignation] = useState("");
+  const [showCustom, setShowCustom] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const nav = useNavigate();
 
-  const handleChange = (e:React.ChangeEvent<HTMLInputElement>)=>{
-    setUserData({...userData,[e.target.id]:e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserData({ ...userData, [e.target.id]: e.target.value });
   };
 
-  const handleSubmit = async (e:React.FormEvent)=>{
-    e.preventDefault()
+  const handleDesignationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedDesignation(val);
+
+    if (val === "Other") {
+      setShowCustom(true);
+      setUserData({ ...userData, designation: "" });
+    } else {
+      setShowCustom(false);
+      setUserData({ ...userData, designation: val });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post(`http://localhost:${PORT}/user/signup`,userData);
-      if (res.data.error){
+      const res = await axios.post(
+        `http://localhost:${PORT}/user/signup`,
+        userData
+      );
+      if (res.data.error) {
         setError(res.data.error);
         setLoading(false);
-        return
+        return;
       }
-
-      localStorage.setItem("token",res.data.token);
-      localStorage.setItem("user",JSON.stringify(res.data.user));
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
       nav("/onboarding");
-
-    } catch (error) {
+    } catch (error: any) {
       setError(error.response?.data?.error || "Something went wrong");
-    } finally{
-      setLoading(false)
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -58,31 +87,102 @@ const Signup = () => {
           <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
           <p className="text-sm text-muted-foreground mt-1">Start your 14-day free trial</p>
         </div>
+
         <div className="bg-card border border-border rounded-xl p-6 shadow-card">
           <form className="space-y-4" onSubmit={handleSubmit}>
+
+            {/* Full Name */}
             <div className="space-y-2">
               <Label htmlFor="name">Full name</Label>
-              <Input id="name" placeholder="Jane Smith" onChange={handleChange} />
+              <Input
+                id="name"
+                placeholder="Jane Smith"
+                onChange={handleChange}
+              />
             </div>
+
+            {/* Work Email */}
             <div className="space-y-2">
               <Label htmlFor="email">Work email</Label>
-              <Input id="email" type="email" placeholder="you@company.com" onChange={handleChange}/>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@company.com"
+                onChange={handleChange}
+              />
             </div>
+
+            {/* Designation Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="designation-select">Your designation</Label>
+              <select
+                id="designation-select"
+                value={selectedDesignation}
+                onChange={handleDesignationChange}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid hsl(var(--border))",
+                  background: "hsl(var(--background))",
+                  color: selectedDesignation ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                  fontSize: "14px",
+                  outline: "none",
+                  cursor: "pointer",
+                  height: "40px",
+                }}
+              >
+                <option value="" disabled>Select your role</option>
+                {DESIGNATIONS.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Custom designation — only shows when Other is selected */}
+            {showCustom && (
+              <div className="space-y-2">
+                <Label htmlFor="designation">Write your designation</Label>
+                <Input
+                  id="designation"
+                  placeholder="e.g. VP of Partnerships"
+                  onChange={handleChange}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" onChange={handleChange}/>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                onChange={handleChange}
+              />
             </div>
+
             {error && (
               <p className="text-sm text-red-500">{error}</p>
             )}
-            <Button className="w-full" type="submit" disabled = {loading}>
-              {loading ? "Creating account...":"Create account"}
+
+            <Button
+              className="w-full"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? "Creating account..." : "Create account"}
             </Button>
+
           </form>
         </div>
+
         <p className="text-center text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+          <Link to="/login" className="text-primary hover:underline font-medium">
+            Sign in
+          </Link>
         </p>
       </div>
     </div>

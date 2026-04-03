@@ -54,6 +54,7 @@ PlanRouter.post('/register', async (req, res) => {
                 email: a.email,
                 org_id: org_id,
                 joined: a.created_at,
+                designation: a.designation,
                 organization: {
                     name: org.name,
                     domain: org.domain,

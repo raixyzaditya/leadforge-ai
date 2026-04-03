@@ -91,6 +91,8 @@ const CampaignPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [campaignStatus, setCampaignStatus] = useState<"Draft" | "Active" | "Paused">("Active");
   const [orgID, setOrgID] = useState("");
+  const [name,setName] = useState("");
+  const [designation,setDesignation] = useState("")
   const nav = useNavigate();
 
   useEffect(() => {
@@ -102,6 +104,8 @@ const CampaignPage = () => {
     }
     const parsed = JSON.parse(user);
     setOrgID(parsed.org_id);
+    setName(parsed.full_name);
+    setDesignation(parsed.designation);
 
     const fetch = async () => {
       try {
@@ -181,6 +185,8 @@ const CampaignPage = () => {
     formData.append("file", file);
     formData.append("campaign_id", id);
     formData.append("organization_id", orgID);
+    formData.append("Designation",designation);
+    formData.append("Name",name);
 
     try {
       const res = await axios.post(
@@ -556,7 +562,7 @@ const CampaignPage = () => {
                     </button>
                   )}
 
-                  <button className="action-btn" style={{ background: "#111827", color: "white", padding: "8px 16px", fontSize: 12.5 }}>
+                  <button className="action-btn" style={{ background: "#111827", color: "white", padding: "8px 16px", fontSize: 12.5 }} onClick={() => nav(`/new_prospect/${id}`)}>
                     + Add Prospect
                   </button>
                 </div>

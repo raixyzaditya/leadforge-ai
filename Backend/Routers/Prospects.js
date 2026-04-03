@@ -6,6 +6,7 @@ import { spawn } from "child_process";
 import csv from "csv-parser";
 import { Resend } from "resend";
 
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 const upload = multer({
     dest: "uploads/"
@@ -32,7 +33,7 @@ function scrapeWebsite(url) {
 
 }
 
-function getEmail(name, company, content, product = {}) {
+function getEmail(name, company, content, sender_name, sender_designation, product = {}) {
     return new Promise((resolve, reject) => {
         const python = spawn("python3", [
             "Generate_emails.py",]);
@@ -60,7 +61,9 @@ function getEmail(name, company, content, product = {}) {
             product_name: product?.name || "",
             product_goal: product?.goal || "",
             product_description: product?.description || "",
-            product_audience: product?.audience || ""
+            product_audience: product?.audience || "",
+            sender_name: sender_name || "",
+            sender_designation: sender_designation || ""
         });
         python.stdin.write(inputData);
         python.stdin.end();
@@ -98,6 +101,8 @@ ProspectsRouter.post("/upload_csv/add_prospects", upload.single('file'), async (
     try {
         const campaignId = req.body.campaign_id;
         const organizationId = req.body.organization_id;
+        const sender_name = req.body.Name;
+        const sender_designation = req.body.Designation;
         console.log("ORG:", organizationId);
         console.log("CAMP:", campaignId);
         const result = await pool.query(`
@@ -224,11 +229,14 @@ INSERT INTO prospects
                                     name,
                                     company,
                                     scrapeData,
+                                    sender_name,
+                                    sender_designation,
                                     {
                                         name: product?.name || "",
                                         goal: product?.primary_goal || "",
                                         description: product?.description || "",
-                                        audience: product?.target_industry || ""
+                                        audience: product?.target_industry || "",
+
                                     }
                                 );
                                 await pool.query(`
@@ -363,6 +371,91 @@ ProspectsRouter.patch("/update_mail/:id", async (req, res) => {
         console.error("Update failed:", err);
         return res.status(500).json({ error: "Failed to update email" });
     }
+})
+
+ProspectsRouter.post("/add_prospects_manually", async (req, res) => {
+    const { prospects, camp_id, organization_id } = req.body;
+    if (!prospects?.length) {
+        return res.status(500).json({ error: "No prospects provided" });
+    }
+    const campResult = await pool.query(
+        `
+        SELECT
+         p.name AS product_name,
+         p.description AS product_description,
+         p.primary_goal AS product_goal,
+         p.target_industry AS product_audience,
+         u.full_name AS sender_name,
+         u.designation AS sender_designation
+         FROM campaigns c
+         JOIN products p ON p.id = c.product_id
+         JOIN users u ON u.organization_id = $2
+         WHERE c.id = $1
+         LIMIT 1
+        `, [camp_id, organization_id]
+    );
+    const metadata = campResult.rows[0];
+    res.json({ success: true, added: prospects.length });
+    for (const prospect of prospects) {
+        
+        const { name, email } = prospect;
+        let company  = prospect.company  || null;   // ← let not const
+        let website  = prospect.website  || null;
+        let linkedin = prospect.linkedin || null;
+        if (!email) continue;
+        if (!website || !company || !linkedin) {
+            const domain = email.split("@")[1];
+            const info = await getInfo(domain);
+            website = website || info.web;
+            company = company || info.company;
+            linkedin = linkedin || info.linkedin;
+        }
+        try {
+            const result = await pool.query(`
+               INSERT INTO prospects
+               (organization_id,camp_id,name,email,company,website,linkedin)
+               VALUES ($1,$2,$3,$4,$5,$6,$7)
+               ON CONFLICT (camp_id,email) DO NOTHING
+               RETURNING id 
+                `, [organization_id, camp_id, name, email, company, website, linkedin]);
+
+            if (result.rowCount === 0) {
+                console.log("Duplicate email skipped ", email);
+                continue;
+            }
+            const prospectID = result.rows[0].id;
+            console.log("Inserted email :- ", email);
+            const web = website || `https://${email.split("@")[1]}`;
+            console.log("Scraping web :- ", web);
+            const scrapeData = await scrapeWebsite(web);
+            console.log("Generating email :- ", email);
+            const { subject, body } = await getEmail(
+                name,
+                company,
+                scrapeData,
+                metadata?.sender_name || "",
+                metadata?.sender_designation || "",
+                {
+                    name: metadata?.product_name,
+                    goal: metadata?.product_goal,
+                    description: metadata?.product_description,
+                    audience: metadata?.product_audience
+                }
+            );
+            await pool.query(
+                `UPDATE prospects
+                SET email_subject = $1, email_body = $2, email_status='pending'
+                WHERE id = $3
+                `, [subject, body, prospectID]
+            );
+            console.log("Email ready for:", email);
+
+        } catch (error) {
+            console.error("Failed for:", email, error.message);
+        }
+
+    }
+    console.log("Manual add complete for", prospects.length, "prospects");
 })
 
 export default ProspectsRouter;

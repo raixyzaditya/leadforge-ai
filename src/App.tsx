@@ -24,6 +24,7 @@ import CampaignPage from "./pages/Campaigns";
 import CampaignsListPage from "./pages/CampaignsListPage";
 import UploadProcessing from "./pages/UploadProcessing";
 import ReviewPage from "./pages/ReviewPage";
+import AddProspect from "./pages/AddProspect";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
           <Route path="/products" element={<ProductPage/>}/>
           <Route path="/upload_processing/:jobId/:campId" element={<UploadProcessing/>}/> 
           <Route path="/review/:campId" element={<ReviewPage/>}/>
+          <Route path="/new_prospect/:campId" element={<AddProspect/>}/>
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

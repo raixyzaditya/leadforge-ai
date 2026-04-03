@@ -36,6 +36,7 @@ OrgRouter.post('/create', async (req, res) => {
                 email: a.email,
                 org_id: your_org.id,
                 joined: a.created_at,
+                designation:a.designation,
                 organization: {
                     name: your_org.name,
                     domain: your_org.domain,

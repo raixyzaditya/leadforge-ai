@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 const UserRouter = express.Router();
 
 UserRouter.post('/signup', async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, email, password,designation } = req.body;
     try {
         const existing = await pool.query(
             `SELECT id FROM users WHERE email = $1`,
@@ -18,11 +18,11 @@ UserRouter.post('/signup', async (req, res) => {
         }
         const hash_pass = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            `INSERT INTO users (full_name,email,password_hash)
-             VALUES ($1, $2, $3)
-             RETURNING id, full_name, email,created_at
+            `INSERT INTO users (full_name,email,password_hash,designation)
+             VALUES ($1, $2, $3,$4)
+             RETURNING id, full_name, email,created_at,designation
             `,
-            [name, email, hash_pass]
+            [name, email, hash_pass,designation]
         );
         const user = result.rows[0];
         const token = jwt.sign(
@@ -39,7 +39,8 @@ UserRouter.post('/signup', async (req, res) => {
                 email: user.email,
                 org_id: null,
                 joined: user.created_at,
-                organization: null
+                organization: null,
+                designation: user.designation
             }
         })
 
@@ -55,7 +56,7 @@ UserRouter.post('/login', async (req, res) => {
     console.log(pass);
     try {
         const existing = await pool.query(
-            `SELECT id,email,password_hash,organization_id,full_name,created_at FROM users WHERE email = $1`,
+            `SELECT * FROM users WHERE email = $1`,
             [email]
         );
         if (existing.rowCount === 0) {
@@ -87,6 +88,7 @@ UserRouter.post('/login', async (req, res) => {
                 org_id: user.organization_id,
                 email: user.email,
                 joined: user.created_at,
+                designation:user.designation,
                 organization: {
                     name: organization.name,
                     domain: organization.domain,

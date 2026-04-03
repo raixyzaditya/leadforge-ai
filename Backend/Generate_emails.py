@@ -22,9 +22,11 @@ Rules:
 - Sound like a thoughtful founder writing personally — not a sales rep
   blasting a list
 - Tone: warm, respectful, confident but not arrogant
-- Max 5 sentences total in the body
+- Max 6 sentences total in the body
 - Always end with a proper sign-off on a new line
 - Don't use this "-" symbol in between the content 
+- Can also use bullet points to showcase the work of your company
+
 
 Return JSON only, no extra text, no markdown:
 {

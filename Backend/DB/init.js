@@ -135,8 +135,12 @@ CREATE TABLE IF NOT EXISTS prospects(
  created_at TIMESTAMP DEFAULT NOW(),
  updated_at TIMESTAMP DEFAULT NOW()
 );
-ALTER TABLE prospects 
-ADD CONSTRAINT unique_camp_email UNIQUE (camp_id, email);
+DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_camp_email') THEN
+                ALTER TABLE prospects ADD CONSTRAINT unique_camp_email UNIQUE (camp_id, email);
+            END IF;
+        END $$;
 
 CREATE TABLE IF NOT EXISTS upload_jobs(
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

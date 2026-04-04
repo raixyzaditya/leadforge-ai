@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import EmailConnectionSection from "./EmailConnectionSection";
 type Tab = "profile" | "organization" | "billing";
 
 const ProfilePage = () => {
@@ -29,6 +29,7 @@ const ProfilePage = () => {
         "left_days":"",
         
     });
+    const [orgID,setOrgID] = useState("");
     const [notifications, setNotifications] = useState({
         replyAlerts: true,
         weeklySummary: true,
@@ -58,6 +59,7 @@ const ProfilePage = () => {
             return;
         }
         const n = JSON.parse(user);
+        setOrgID(n.org_id);
         const date = n.joined ? formatDate(n.joined) : "";
         const dayLeft = daysLeft(n.organization.end);
         const plan_end = n.organization.end ? formatDate(n.organization.end): "";
@@ -352,43 +354,7 @@ const ProfilePage = () => {
                         </div>
 
                         {/* Email Connection */}
-                        <div className="section-card">
-                            <div className="section-title">Email Connection</div>
-                            <div className="section-subtitle">Connect your inbox to send outreach campaigns.</div>
-
-                            {/* Gmail row */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", background: "#f9f9f7", borderRadius: 11, border: "1px solid #e8e6e1", marginBottom: 10 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                                    <div style={{ width: 38, height: 38, borderRadius: 10, background: "white", border: "1px solid #e8e6e1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📧</div>
-                                    <div>
-                                        <div style={{ fontSize: 13.5, fontWeight: 600, color: "#111827" }}>Gmail</div>
-                                        <div style={{ fontSize: 12, color: "#9ca3af" }}>{profileData.email} · Last synced 2 min ago</div>
-                                    </div>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                    <span className="badge" style={{ background: "#dcfce7", color: "#16a34a" }}>
-                                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", display: "inline-block" }} />
-                                        Connected
-                                    </span>
-                                    <button className="ghost-btn" style={{ padding: "7px 14px", fontSize: 12 }}>Reconnect</button>
-                                </div>
-                            </div>
-
-                            {/* Outlook row — not connected */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", background: "#f9f9f7", borderRadius: 11, border: "1.5px dashed #e0ddd6" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                                    <div style={{ width: 38, height: 38, borderRadius: 10, background: "white", border: "1px solid #e8e6e1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📨</div>
-                                    <div>
-                                        <div style={{ fontSize: 13.5, fontWeight: 600, color: "#111827" }}>Outlook</div>
-                                        <div style={{ fontSize: 12, color: "#9ca3af" }}>Not connected</div>
-                                    </div>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                    <span className="badge" style={{ background: "#f1f5f9", color: "#64748b" }}>Not Connected</span>
-                                    <button className="primary-btn" style={{ padding: "7px 14px", fontSize: 12 }}>Connect</button>
-                                </div>
-                            </div>
-                        </div>
+                        <EmailConnectionSection orgId={orgID} />
 
                         {/* Notifications */}
                         <div className="section-card">

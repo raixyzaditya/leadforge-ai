@@ -169,6 +169,19 @@ CREATE TABLE IF NOT EXISTS email_messages(
  updated_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS email_accounts(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+	from_name TEXT NOT NULL,
+	from_email TEXT NOT NULL,
+	domain_name TEXT NOT NULL,
+	resend_domain_id TEXT,
+	dns_record JSONB,
+	is_verified BOOLEAN DEFAULT false,
+	is_default BOOLEAN DEFAULT false,
+	created_at TIMESTAMP DEFAULT NOW()
+);
+
     `);
 
     console.log('Tables created successfully!');

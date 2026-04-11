@@ -1,24 +1,33 @@
-import pool from "../DB/DB.js";
-import express from "express";
-import https from "https";
-import fetch from "node-fetch";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
+import fetch from "node-fetch";
+import https from "https";
+import express from "express";
+import pool from "../DB/DB.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({path:path.join(__dirname,"../.env")});
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
+const RESEND_KEY = process.env.RESEND_API_KEY;
+const TEST_EMAIL = process.env.YOUR_TEST_EMAIL;
+const BASE_URL   = process.env.BASE_URL;
 
-const agent = new https.Agent({rejectUnauthorized:false});
-const sleep = (ms) => new Promise(r => setTimeout(r,ms));
+console.log("RESEND_KEY loaded:", !!RESEND_KEY);
+console.log("TEST_EMAIL loaded:", !!TEST_EMAIL);
+
+const agent = new https.Agent({ rejectUnauthorized: false });
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const CampaignRouter = express.Router();
 
 function buildEmailHtml(prospect, baseUrl){
    return ` <div style=" font-family: sans-serif; font-size: 14px; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; "> ${prospect.email_body.replace(/\n/g, "<br/>")} </div> <br/> <hr style=" border: none; border-top: 1px solid #f0f0f0; margin: 20px 20px; "/> <p style=" font-size: 11px; color: #9ca3af; font-family: sans-serif; line-height: 1.6; padding: 0 20px 20px; "> This email was sent because your company was identified as a potential fit.<br/> Don't want these emails? href="${baseUrl}/prospects/unsubscribe/${prospect.id}" style="color: #9ca3af;" > Manage preferences </a> </p> <img src="${baseUrl}/prospects/track/open/${prospect.id}" width="1" height="1" style="display:none;border:0;" /> `;
 }
 
-const CampaignRouter = express.Router();
+
 
 CampaignRouter.post("/launch/:campaignId",async(req,res)=>{
     const {campaignId} = req.params;
@@ -69,17 +78,17 @@ CampaignRouter.post("/launch/:campaignId",async(req,res)=>{
                     skipped++;
                     continue;
                 }
-                const html = buildEmailHtml(prospect,process.env.BASE_URL);
+                const html = buildEmailHtml(prospect,BASE_URL);
                 const response = await fetch("https://api.resend.com/emails",{
                     method:"POST",
                     agent,
                     headers:{
-                        "Authorization":`Bearer ${process.abort.env.RESEND_API_KEY}`,
+                        "Authorization":`Bearer ${RESEND_KEY}`,
                         "Content-Type":"application/json"
                     },
                     body:JSON.stringify({
                         from: process.env.SENDING_EMAIL,
-                        to: process.env.YOUR_TEST_EMAIL,
+                        to: TEST_EMAIL,
                         subject: `[TEST -> ${prospect.email}] ${prospect.email_subject}`,
                         html,
                     }),

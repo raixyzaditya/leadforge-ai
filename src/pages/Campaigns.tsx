@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, AreaChart, Area,
+  Label,
 } from "recharts";
 import axios from "axios";
 import ProspectDrawer from "./ProspectDrawer";
@@ -29,7 +30,10 @@ type Prospect = {
   website: string,
   linkedin: string,
   company: string,
-  status: string
+  status: string,
+  email_status: string,
+  email_subject: string,
+  email_body: string
 }
 // ── Mock Data ──────────────────────────────────────────────
 const analyticsData = [
@@ -47,7 +51,8 @@ const statusOptions = [
   { label: "Email Sent", value: "email_sent" },
   { label: "Opened", value: "opened" },
   { label: "Replied", value: "replied" },
-  { label: "Meeting Scheduled", value: "meeting_scheduled" }
+  { label: "Meeting Scheduled", value: "meeting_scheduled" },
+  { Label: "Unsubscribed", value: "unsubscribed" }
 ];
 
 
@@ -74,7 +79,8 @@ const statusConfig = {
   email_sent: { bg: "#eff6ff", color: "#2563eb", dot: "#3b82f6" },
   opened: { bg: "#fef9c3", color: "#92400e", dot: "#f59e0b" },
   replied: { bg: "#f0fdf4", color: "#166534", dot: "#22c55e" },
-  meeting_scheduled: { bg: "#faf5ff", color: "#6b21a8", dot: "#a855f7" }
+  meeting_scheduled: { bg: "#faf5ff", color: "#6b21a8", dot: "#a855f7" },
+  unsubscribed: { bg: "#f9fafb", color: "#9ca3af", dot: "#d1d5db" }
 };
 
 type Tab = "prospects" | "sequence" | "analytics";
@@ -91,8 +97,10 @@ const CampaignPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [campaignStatus, setCampaignStatus] = useState<"Draft" | "Active" | "Paused">("Active");
   const [orgID, setOrgID] = useState("");
-  const [name,setName] = useState("");
-  const [designation,setDesignation] = useState("")
+  const [name, setName] = useState("");
+  const [designation, setDesignation] = useState("")
+  const [launching, setLaunching] = useState(false);
+  const [launchModel, setLaunchModal] = useState(false);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -161,6 +169,7 @@ const CampaignPage = () => {
     return `${month} ${day}, ${year}`;
   };
 
+  const handleLaunch = async () => { setLaunching(true); try { const res = await axios.post(`http://localhost:${PORT}/campaigns/launch/${id}`, { organization_id: orgID }); setCampaignStatus("Active"); setLaunchModal(false); alert(`🚀 Sending ${res.data.total} emails to your Gmail for testing!`); } catch (err: any) { alert(err.response?.data?.error || "Launch failed"); } finally { setLaunching(false); } };
 
   const filteredProspects =
     statusFilter === "all"
@@ -185,8 +194,8 @@ const CampaignPage = () => {
     formData.append("file", file);
     formData.append("campaign_id", id);
     formData.append("organization_id", orgID);
-    formData.append("Designation",designation);
-    formData.append("Name",name);
+    formData.append("Designation", designation);
+    formData.append("Name", name);
 
     try {
       const res = await axios.post(
@@ -387,9 +396,7 @@ const CampaignPage = () => {
                   ▶ Resume
                 </button>
               ) : (
-                <button className="action-btn" style={{ background: "#dcfce7", color: "#166534" }} onClick={() => setCampaignStatus("Active")}>
-                  🚀 Launch Campaign
-                </button>
+                <button className="action-btn" style={{ background: "#dcfce7", color: "#166534" }} onClick={() => setLaunchModal(true)} > 🚀 Launch Campaign </button> 
               )}
               <button className="action-btn" style={{ background: "#f1f5f9", color: "#374151" }}>
                 ✏ Edit
@@ -834,6 +841,7 @@ const CampaignPage = () => {
         prospectId={drawerProspectId}
         onClose={() => setDrawerProspectId(null)}
       />
+      {launchModel && ( <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}> <div style={{ background: "white", borderRadius: 16, padding: 32, width: 420, boxShadow: "0 24px 60px rgba(0,0,0,0.15)" }}> <h3 style={{ fontFamily: "'Fraunces',serif", fontSize: 20, marginBottom: 8 }}> Launch Campaign? </h3> <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 20, lineHeight: 1.6 }}> This will send all approved emails to <strong> your Gmail</strong> for testing. Each email will show which prospect it was meant for. </p> <div style={{ background: "#f8f8f6", borderRadius: 10, padding: "12px 16px", marginBottom: 20 }}> {[ { label: "Approved prospects", value: pros.filter(p => p.email_status === "approved").length }, { label: "Mode", value: "Test (sending to your Gmail)" }, { label: "Delay between sends", value: "2 seconds" }, ].map(row => ( <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0" }}> <span style={{ color: "#9ca3af" }}>{row.label}</span> <span style={{ fontWeight: 600 }}>{row.value}</span> </div> ))} </div> <div style={{ display: "flex", gap: 8 }}> <button onClick={() => setLaunchModal(false)} style={{ flex: 1, padding: 10, borderRadius: 9, border: "1.5px solid #e5e7eb", background: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }} > Cancel </button> <button onClick={handleLaunch} disabled={launching} style={{ flex: 1, padding: 10, borderRadius: 9, border: "none", background: "#111827", color: "white", cursor: launching ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: launching ? 0.7 : 1 }} > {launching ? "Launching…" : "🚀 Confirm Launch"} </button> </div> </div> </div> )}
     </div>
   );
 };

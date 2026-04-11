@@ -77,7 +77,8 @@ EmailRouter.post("/verify/:domainID",async(req,res)=>{
     const {domainID} = req.params;
     const {organization_id} = req.body
     try {
-        const result = await resend.domains.verify(domainID);
+        const data = await resendRequest(`/domains/${domainID}/verify`,"POST")
+        console.log("Verify response: ", data);
         if (result.data?.status === "verified"){
             await pool.query(`
                 UPDATE email_accounts

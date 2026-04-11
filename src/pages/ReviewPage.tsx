@@ -34,6 +34,7 @@ const ReviewPage = () => {
   const [filter, setFilter] = useState("all");
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -386,7 +387,12 @@ const ReviewPage = () => {
           letter-spacing: -0.01em;
         }
         .f-input:focus { border-color: var(--blue-border); box-shadow: 0 0 0 3px var(--blue-bg); }
-
+        .btn-preview {
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+.btn-preview:hover { background: #e0f2fe; }
         .f-ta {
           width: 100%; padding: 13px 14px;
           border: 1px solid var(--border); border-radius: 9px;
@@ -406,7 +412,19 @@ const ReviewPage = () => {
         }
         .btn-save:hover { background: var(--ink2); }
         .btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
+        .act-prev {
+  background: var(--surface2);
+  color: var(--ink3);
+  border: 1px solid var(--border);
+}
+.act-prev:hover { border-color: var(--border2); color: var(--ink2); }
 
+.act-app {
+  background: var(--ink);
+  color: #fff;
+  border: 1px solid transparent;
+}
+.act-app:hover { background: var(--ink2); }
         .btn-cncl {
           padding: 10px 20px; background: transparent; color: var(--ink3);
           border: 1px solid var(--border); border-radius: 9px;
@@ -528,19 +546,50 @@ const ReviewPage = () => {
               </div>
 
               <div className="toolbar">
-                <div>
-                  <div className="tb-name-row">
-                    <div className="tb-avatar">{getInitials(selected.name)}</div>
-                    <div className="tb-name">{selected.name}</div>
+                {/* Left: prospect identity */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="tb-avatar">{getInitials(selected.name)}</div>
+                  <div>
+                    <div className="tb-name">{selected.name || selected.email}</div>
+                    <div className="tb-email" style={{ paddingLeft: 0 }}>
+                      {selected.email} · {selected.company}
+                    </div>
                   </div>
-                  <div className="tb-email">{selected.email}</div>
                 </div>
+
+                {/* Right: actions */}
                 <div className="tb-actions">
-                  <button className="act-btn act-rej" onClick={() => setStatus(selected.id, "rejected")}>
-                    ✕ Reject
+                  <button className="act-btn act-prev" onClick={() => setShowPreview(true)}>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+                      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+                    </svg>
+                    Preview
                   </button>
-                  <button className="act-btn act-app" onClick={saveAndApprove} disabled={saving}>
-                    {saving ? "Saving…" : "✓ Approve"}
+
+                  <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 2px" }} />
+
+                  <button
+                    className="act-btn act-rej"
+                    onClick={() => setStatus(selected.id, "rejected")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                      <line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                    </svg>
+                    Reject
+                  </button>
+
+                  <button
+                    className="act-btn act-app"
+                    onClick={saveAndApprove}
+                    disabled={saving}
+                    style={saving ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <polyline points="1.5,6 4.5,9 10.5,3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {saving ? "Saving…" : "Approve"}
                   </button>
                 </div>
               </div>
@@ -576,24 +625,197 @@ const ReviewPage = () => {
         </div>
       </div>
       {toast && (
-    <div style={{
-        position: "fixed",
-        bottom: 28,
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: "#141410",
-        color: "#fff",
-        padding: "10px 22px",
-        borderRadius: 100,
-        fontSize: 13,
-        fontWeight: 400,
-        fontFamily: "var(--sans)",
-        zIndex: 100,
-        animation: "fadeUp 0.2s ease"
-    }}>
-        {toast}
-    </div>
-)}
+        <div style={{
+          position: "fixed",
+          bottom: 28,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#141410",
+          color: "#fff",
+          padding: "10px 22px",
+          borderRadius: 100,
+          fontSize: 13,
+          fontWeight: 400,
+          fontFamily: "var(--sans)",
+          zIndex: 100,
+          animation: "fadeUp 0.2s ease"
+        }}>
+          {toast}
+        </div>
+      )}
+      {showPreview && selected && (
+        <div style={{
+          position: "fixed", inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center",
+          justifyContent: "center", zIndex: 300,
+          padding: 24,
+        }}>
+          <div style={{
+            background: "white", borderRadius: 16,
+            width: "100%", maxWidth: 620,
+            maxHeight: "90vh", overflow: "hidden",
+            display: "flex", flexDirection: "column",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.2)",
+          }}>
+
+            {/* Modal header */}
+            <div style={{
+              padding: "18px 24px",
+              borderBottom: "1px solid #e8e6e1",
+              display: "flex", justifyContent: "space-between",
+              alignItems: "center", flexShrink: 0,
+            }}>
+              <div>
+                <div style={{
+                  fontSize: 14, fontWeight: 700,
+                  color: "#111827", marginBottom: 2
+                }}>
+                  Email Preview
+                </div>
+                <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                  This is exactly what {selected.name} will see
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPreview(false)}
+                style={{
+                  width: 30, height: 30, borderRadius: "50%",
+                  background: "#f4f3ef", border: "1px solid #e8e6e1",
+                  cursor: "pointer", fontSize: 13, color: "#6b7280",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Email client simulation */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+
+              {/* Email headers — looks like Gmail */}
+              <div style={{
+                padding: "16px 24px",
+                borderBottom: "1px solid #f0efe9",
+                background: "#fafaf8",
+              }}>
+                {[
+                  { label: "From", value: "outreach@yourcompany.com" },
+                  { label: "To", value: selected.email },
+                  { label: "Subject", value: editSubject || selected.email_subject },
+                ].map(row => (
+                  <div key={row.label} style={{
+                    display: "flex", gap: 12,
+                    fontSize: 13, marginBottom: 6,
+                    alignItems: "flex-start",
+                  }}>
+                    <span style={{
+                      color: "#9ca3af", fontWeight: 600,
+                      minWidth: 56, fontSize: 11.5,
+                      paddingTop: 1,
+                    }}>
+                      {row.label}
+                    </span>
+                    <span style={{
+                      color: "#111827",
+                      fontWeight: row.label === "Subject" ? 600 : 400,
+                    }}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Email body */}
+              <div style={{ padding: "28px 24px" }}>
+
+                {/* Actual email body */}
+                <div style={{
+                  fontFamily: "sans-serif",
+                  fontSize: 14, lineHeight: 1.8,
+                  color: "#333", marginBottom: 32,
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {editBody || selected.email_body}
+                </div>
+
+                {/* Divider */}
+                <hr style={{
+                  border: "none", borderTop: "1px solid #f0f0f0",
+                  margin: "20px 0"
+                }} />
+
+                {/* Footer — unsubscribe section */}
+                <div style={{
+                  fontSize: 11, color: "#9ca3af",
+                  lineHeight: 1.6, fontFamily: "sans-serif",
+                }}>
+                  This email was sent because your company was
+                  identified as a potential fit.
+                  Don't want these emails?{" "}
+                  <span style={{
+                    color: "#9ca3af",
+                    textDecoration: "underline",
+                    cursor: "default",
+                  }}>
+                    Manage preferences
+                  </span>
+                  {" "}(unsubscribe link will be active when sending)
+                </div>
+
+                {/* Tracking pixel note */}
+                <div style={{
+                  marginTop: 12, fontSize: 10.5,
+                  color: "#d1d5db", fontFamily: "sans-serif",
+                }}>
+                  📍 Open tracking pixel will be injected automatically
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div style={{
+              padding: "14px 24px",
+              borderTop: "1px solid #e8e6e1",
+              display: "flex", justifyContent: "space-between",
+              alignItems: "center", flexShrink: 0,
+              background: "#fafaf8",
+            }}>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                ✓ Unsubscribe link included · ✓ Tracking pixel included
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setShowPreview(false)}
+                  style={{
+                    padding: "8px 16px", borderRadius: 8,
+                    border: "1px solid #e8e6e1", background: "white",
+                    fontSize: 12, cursor: "pointer",
+                    fontFamily: "var(--sans)",
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPreview(false);
+                    saveAndApprove();
+                  }}
+                  style={{
+                    padding: "8px 16px", borderRadius: 8,
+                    border: "none", background: "#111827",
+                    color: "white", fontSize: 12,
+                    cursor: "pointer", fontFamily: "var(--sans)",
+                  }}
+                >
+                  ✓ Approve this email
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

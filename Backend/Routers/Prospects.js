@@ -5,6 +5,13 @@ import fs from "fs";
 import { spawn } from "child_process";
 import csv from "csv-parser";
 import { Resend } from "resend";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import path from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({path:path.join(__dirname,"../.env")});
 
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -397,10 +404,10 @@ ProspectsRouter.post("/add_prospects_manually", async (req, res) => {
     const metadata = campResult.rows[0];
     res.json({ success: true, added: prospects.length });
     for (const prospect of prospects) {
-        
+
         const { name, email } = prospect;
-        let company  = prospect.company  || null;   // ← let not const
-        let website  = prospect.website  || null;
+        let company = prospect.company || null;   // ← let not const
+        let website = prospect.website || null;
         let linkedin = prospect.linkedin || null;
         if (!email) continue;
         if (!website || !company || !linkedin) {
@@ -456,6 +463,75 @@ ProspectsRouter.post("/add_prospects_manually", async (req, res) => {
 
     }
     console.log("Manual add complete for", prospects.length, "prospects");
+})
+
+ProspectsRouter.get("/unsubscribe/:prospectId", async (req, res) => {
+    const { prospectId } = req.params;
+    const { scope } = req.query;
+    try {
+        const result = await pool.query(
+            `SELECT p.email, p.organization_id, p.camp_id,
+                    o.name AS org_name
+             FROM prospects p
+             JOIN organizations o ON o.id = p.organization_id
+             WHERE p.id = $1
+            `, [prospectId]
+        )
+
+        if (!result.rows[0]) {
+            return res.send("<h2>Already unsubscribed</h2>");
+        }
+
+        const { email, organization_id, camp_id, org_name } = result.rows[0];
+        if (!scope) { return res.send(` <!DOCTYPE html> <html> <head> <title>Unsubscribe</title> <style> * { box-sizing:border-box; margin:0; padding:0; } body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f9f9f9; padding: 24px; } .box { background: white; border-radius: 14px; border: 1px solid #e5e7eb; padding: 40px; max-width: 460px; width: 100%; text-align: center; } h2 { font-size: 20px; color: #111827; margin-bottom: 10px; } p { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 28px; } .option { display: block; width: 100%; padding: 14px 20px; margin-bottom: 10px; border-radius: 10px; border: 1.5px solid #e5e7eb; background: white; font-size: 14px; font-family: sans-serif; cursor: pointer; text-align: left; text-decoration: none; color: #374151; transition: all 0.15s; } .option:hover { border-color: #111827; } .option.danger { color: #dc2626; border-color: #fecaca; } .option.danger:hover { background: #fef2f2; border-color: #dc2626; } .option-title { font-weight: 600; margin-bottom: 3px; } .option-desc { font-size: 12px; color: #9ca3af; } .option.danger .option-desc { color: #fca5a5; } </style> </head> <body> <div class="box"> <div style="font-size:36px;margin-bottom:16px;">✉️</div> <h2>Manage your preferences</h2> <p> You received an email from <strong>${org_name}</strong>.<br/> What would you like to do? </p> <a href="/prospects/unsubscribe/${prospectId}?scope=campaign" class="option"> <div class="option-title">Unsubscribe from this campaign only</div> <div class="option-desc"> You won't receive more emails about this topic. ${org_name} may still contact you about other products. </div> </a> <a href="/prospects/unsubscribe/${prospectId}?scope=organization" class="option danger"> <div class="option-title">Unsubscribe from all ${org_name} emails</div> <div class="option-desc"> You will never receive any email from ${org_name} again. </div> </a> </div> </body> </html> `); }
+        if (scope === "campaign") {
+            await pool.query(`
+                INSERT INTO unsubscribes
+                (org_id,camp_id,email,scope)
+                VALUES($1,$2,$3,'campaign')
+                ON CONFLICT DO NOTHING
+                `, [organization_id, camp_id, email]);
+
+            await pool.query(
+                `
+                UPDATE prospects SET status = 'unsubscribed' WHERE id = $1
+                `, [prospectId]
+            );
+        } else if (scope === "organization") {
+            await pool.query(`
+                INSERT INTO unsubscribes
+                (org_id,camp_id,email,scope)
+                VALUES($1,NULL,$3,'organization')
+                ON CONFLICT DO NOTHING
+                `, [organization_id, email]);
+
+            await pool.query(
+                `
+                UPDATE prospects SET status = 'unsubscribed' WHERE email = $1 AND organization_id = $2
+                `, [email, organization_id]
+            );
+
+        }
+        return res.send(` <!DOCTYPE html> <html> <head> <title>Unsubscribed</title> <style> body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f9f9f9; } .box { text-align: center; padding: 48px; background: white; border-radius: 14px; border: 1px solid #e5e7eb; max-width: 420px; } h2 { color: #111827; margin-bottom: 10px; } p { color: #6b7280; font-size: 14px; line-height: 1.6; } </style> </head> <body> <div class="box"> <div style="font-size:40px;margin-bottom:16px;">✅</div> <h2>You've been unsubscribed</h2> <p> ${scope === "campaign" ? `You won't receive more emails about this campaign. You may still hear from ${org_name} about other products.` : `You won't receive any more emails from ${org_name}. This change is permanent.`} </p> </div> </body> </html> `);
+    } catch (error) {
+        console.error(err);
+        res.send("<h2>Something went wrong. Please try again.</h2>");
+    }
+})
+
+ProspectsRouter.get('/track/open/:prospectId', async (req, res) => {
+    const { prospectId } = req.params;
+    try {
+        await pool.query(
+            `UPDATE prospects SET status = 'opened' WHERE id = $1 AND status = 'email_sent'`, [prospectId]
+        );
+        console.log("Opened by: ", prospectId);
+    } catch (error) {
+        console.log("Tracking error :- ", err);
+    }
+    const pixel = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"); 
+    res.writeHead(200, { "Content-Type": "image/gif", "Cache-Control": "no-cache, no-store", "Content-Length": pixel.length, }); 
+    res.end(pixel);
 })
 
 export default ProspectsRouter;

@@ -181,6 +181,15 @@ CREATE TABLE IF NOT EXISTS email_accounts(
 	is_default BOOLEAN DEFAULT false,
 	created_at TIMESTAMP DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS unsubscribes(
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  camp_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  scope TEXT DEFAULT 'campaign',
+  unsubscribe_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(org_id,camp_id,email)
+);
 
     `);
 

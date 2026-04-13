@@ -469,6 +469,11 @@ ProspectsRouter.get("/unsubscribe/:prospectId", async (req, res) => {
     const { prospectId } = req.params;
     const { scope } = req.query;
     try {
+        await pool.query(
+            `UPDATE prospects SET status = 'opened'
+             WHERE id = $1 AND status IN ('email_sent', 'not_contacted')`,
+            [prospectId]
+        );
         const result = await pool.query(
             `SELECT p.email, p.organization_id, p.camp_id,
                     o.name AS org_name
@@ -501,7 +506,7 @@ ProspectsRouter.get("/unsubscribe/:prospectId", async (req, res) => {
             await pool.query(`
                 INSERT INTO unsubscribes
                 (org_id,camp_id,email,scope)
-                VALUES($1,NULL,$3,'organization')
+                VALUES($1,NULL,$2,'organization')
                 ON CONFLICT DO NOTHING
                 `, [organization_id, email]);
 
@@ -514,7 +519,7 @@ ProspectsRouter.get("/unsubscribe/:prospectId", async (req, res) => {
         }
         return res.send(` <!DOCTYPE html> <html> <head> <title>Unsubscribed</title> <style> body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f9f9f9; } .box { text-align: center; padding: 48px; background: white; border-radius: 14px; border: 1px solid #e5e7eb; max-width: 420px; } h2 { color: #111827; margin-bottom: 10px; } p { color: #6b7280; font-size: 14px; line-height: 1.6; } </style> </head> <body> <div class="box"> <div style="font-size:40px;margin-bottom:16px;">✅</div> <h2>You've been unsubscribed</h2> <p> ${scope === "campaign" ? `You won't receive more emails about this campaign. You may still hear from ${org_name} about other products.` : `You won't receive any more emails from ${org_name}. This change is permanent.`} </p> </div> </body> </html> `);
     } catch (error) {
-        console.error(err);
+        console.error(error);
         res.send("<h2>Something went wrong. Please try again.</h2>");
     }
 })

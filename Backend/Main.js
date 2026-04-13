@@ -7,6 +7,7 @@ import cors from 'cors';
 import CampaignRouter from './Routers/Campaign.js';
 import ProspectsRouter from './Routers/Prospects.js';
 import EmailRouter from './Routers/EmailAcc.js';
+
 const app = express();
 app.use(cors());
 app.use(express.json());

@@ -52,7 +52,7 @@ const statusOptions = [
   { label: "Opened", value: "opened" },
   { label: "Replied", value: "replied" },
   { label: "Meeting Scheduled", value: "meeting_scheduled" },
-  { Label: "Unsubscribed", value: "unsubscribed" }
+  { label: "Unsubscribed", value: "unsubscribed" }
 ];
 
 
@@ -101,6 +101,9 @@ const CampaignPage = () => {
   const [designation, setDesignation] = useState("")
   const [launching, setLaunching] = useState(false);
   const [launchModel, setLaunchModal] = useState(false);
+  const [launchState, setLaunchState] = useState<"confirm" | "sending" | "done">("confirm");
+  const [sentCount, setSentCount] = useState(0);
+  const [totalToSend, setTotalToSend] = useState(0);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -117,17 +120,12 @@ const CampaignPage = () => {
 
     const fetch = async () => {
       try {
-        console.log("🔍 Fetching campaign with id:", id);
         const res = await axios.get(`http://localhost:${PORT}/campaigns/campaign/${id}`);
         const camp = res.data.camp;
         setActiveCamp(camp);
-
-
         if (camp?.product_id) {
           try {
-            console.log("🔍 Fetching prod with id:", camp.product_id);
             const prodRes = await axios.get(`http://localhost:${PORT}/product/get_single_product/${camp.product_id}`);
-            console.log("prodRes.data:", prodRes.data);
             setActiveProd(prodRes.data.products);
           } catch (e) {
             console.log("Failed to fetch product:", e);
@@ -137,6 +135,7 @@ const CampaignPage = () => {
         console.log("Failed to fetch campaign:", error);
       }
     };
+
     const fetch_pros = async () => {
       try {
         const res = await axios.get(`http://localhost:${PORT}/prospects/get_prospects/${id}`);
@@ -144,13 +143,14 @@ const CampaignPage = () => {
       } catch (error) {
         console.log("Failed to fetch your prospects:", error);
       }
-    }
+    };
 
-    fetch();
-    fetch_pros();
+    fetch();           // ✅ runs first
+    fetch_pros();      // ✅ runs immediately
+    const poll = setInterval(fetch_pros, 5000); // ✅ then every 5s
 
-
-  }, [])
+    return () => clearInterval(poll); // ✅ cleanup at the end
+  }, []);
   useEffect(() => {
     if (activeCamp) {
       setCampaignStatus(activeCamp.status as "Draft" | "Active" | "Paused");
@@ -169,7 +169,46 @@ const CampaignPage = () => {
     return `${month} ${day}, ${year}`;
   };
 
-  const handleLaunch = async () => { setLaunching(true); try { const res = await axios.post(`http://localhost:${PORT}/campaigns/launch/${id}`, { organization_id: orgID }); setCampaignStatus("Active"); setLaunchModal(false); alert(`🚀 Sending ${res.data.total} emails to your Gmail for testing!`); } catch (err: any) { alert(err.response?.data?.error || "Launch failed"); } finally { setLaunching(false); } };
+  const handleLaunch = async () => {
+    setLaunching(true);
+    setLaunchState("sending");
+    setSentCount(0);
+
+    const approved = pros.filter(p => p.email_status === "approved");
+    setTotalToSend(approved.length);
+
+    // Start polling DB every 2s to count how many are now email_sent
+    const poll = setInterval(async () => {
+      try {
+        const res = await axios.get(`http://localhost:${PORT}/prospects/get_prospects/${id}`);
+        const updated: Prospect[] = res.data.prospects;
+        const sent = updated.filter(p =>
+          ["email_sent", "opened", "replied", "unsubscribed"].includes(p.status)
+        ).length;
+        setSentCount(sent);
+        setPros(updated);
+
+        if (sent >= approved.length) {
+          clearInterval(poll);
+          setLaunchState("done");
+          setLaunching(false);
+        }
+      } catch (e) { }
+    }, 2000);
+
+    try {
+      await axios.post(`http://localhost:${PORT}/campaigns/launch/${id}`, {
+        organization_id: orgID,
+      });
+      setCampaignStatus("Active");
+    } catch (err: any) {
+      clearInterval(poll);
+      alert(err.response?.data?.error || "Launch failed");
+      setLaunchModal(false);
+      setLaunchState("confirm");
+      setLaunching(false);
+    }
+  };
 
   const filteredProspects =
     statusFilter === "all"
@@ -291,7 +330,7 @@ const CampaignPage = () => {
           padding:22px 24px; position:relative; transition:all 0.2s;
         }
         .seq-card:hover { box-shadow:0 8px 24px rgba(0,0,0,0.06); transform:translateY(-1px); }
-
+        
         .ghost-btn {
           background:white; color:#374151; border:1.5px solid #e5e7eb; padding:8px 16px;
           border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer;
@@ -306,6 +345,7 @@ const CampaignPage = () => {
           font-family:'Plus Jakarta Sans',sans-serif; transition:all 0.18s;
         }
         .danger-btn:hover { background:#fef2f2; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* ── SIDEBAR ── */}
@@ -396,13 +436,20 @@ const CampaignPage = () => {
                   ▶ Resume
                 </button>
               ) : (
-                <button className="action-btn" style={{ background: "#dcfce7", color: "#166534" }} onClick={() => setLaunchModal(true)} > 🚀 Launch Campaign </button> 
+                <button className="action-btn" style={{ background: "#dcfce7", color: "#166534" }} onClick={() => setLaunchModal(true)} > 🚀 Launch Campaign </button>
               )}
               <button className="action-btn" style={{ background: "#f1f5f9", color: "#374151" }}>
                 ✏ Edit
               </button>
               <button className="action-btn" style={{ background: "#eff6ff", color: "#2563eb" }}>
                 ⧉ Duplicate
+              </button>
+              <button
+                className="action-btn"
+                style={{ background: "#eff6ff", color: "#2563eb" }}
+                onClick={() => setLaunchModal(true)}
+              >
+                Send to new prospects
               </button>
               <button className="danger-btn">🗑 Delete</button>
             </div>
@@ -841,7 +888,285 @@ const CampaignPage = () => {
         prospectId={drawerProspectId}
         onClose={() => setDrawerProspectId(null)}
       />
-      {launchModel && ( <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}> <div style={{ background: "white", borderRadius: 16, padding: 32, width: 420, boxShadow: "0 24px 60px rgba(0,0,0,0.15)" }}> <h3 style={{ fontFamily: "'Fraunces',serif", fontSize: 20, marginBottom: 8 }}> Launch Campaign? </h3> <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 20, lineHeight: 1.6 }}> This will send all approved emails to <strong> your Gmail</strong> for testing. Each email will show which prospect it was meant for. </p> <div style={{ background: "#f8f8f6", borderRadius: 10, padding: "12px 16px", marginBottom: 20 }}> {[ { label: "Approved prospects", value: pros.filter(p => p.email_status === "approved").length }, { label: "Mode", value: "Test (sending to your Gmail)" }, { label: "Delay between sends", value: "2 seconds" }, ].map(row => ( <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0" }}> <span style={{ color: "#9ca3af" }}>{row.label}</span> <span style={{ fontWeight: 600 }}>{row.value}</span> </div> ))} </div> <div style={{ display: "flex", gap: 8 }}> <button onClick={() => setLaunchModal(false)} style={{ flex: 1, padding: 10, borderRadius: 9, border: "1.5px solid #e5e7eb", background: "white", cursor: "pointer", fontWeight: 600, fontSize: 13 }} > Cancel </button> <button onClick={handleLaunch} disabled={launching} style={{ flex: 1, padding: 10, borderRadius: 9, border: "none", background: "#111827", color: "white", cursor: launching ? "not-allowed" : "pointer", fontWeight: 600, fontSize: 13, opacity: launching ? 0.7 : 1 }} > {launching ? "Launching…" : "🚀 Confirm Launch"} </button> </div> </div> </div> )}
+      {launchModel && (() => {
+        const approvedCount = pros.filter(p => p.email_status === "approved").length;
+
+        return (
+          <div style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 100, padding: 24,
+          }}>
+            <div style={{
+              background: "white", borderRadius: 16,
+              width: "100%", maxWidth: 440,
+              boxShadow: "0 24px 60px rgba(0,0,0,0.18)",
+              overflow: "hidden",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}>
+
+              {/* ── STATE: NO APPROVED EMAILS ── */}
+              {approvedCount === 0 && launchState === "confirm" && (
+                <>
+                  <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f1f5f9" }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      background: "#fef3c7", display: "flex",
+                      alignItems: "center", justifyContent: "center", marginBottom: 14,
+                    }}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 3L17.5 16H2.5L10 3Z" stroke="#92400e" strokeWidth="1.5" strokeLinejoin="round" />
+                        <line x1="10" y1="8" x2="10" y2="12" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round" />
+                        <circle cx="10" cy="14.5" r="0.75" fill="#92400e" />
+                      </svg>
+                    </div>
+                    <p style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+                      No emails approved yet
+                    </p>
+                    <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+                      You need to approve at least one email draft before launching. Review and approve prospects on the email drafts page.
+                    </p>
+                  </div>
+                  <div style={{ padding: "16px 24px" }}>
+                    <div style={{
+                      background: "#fffbeb", border: "1px solid #fcd34d",
+                      borderRadius: 10, padding: "12px 14px",
+                      display: "flex", gap: 10, alignItems: "flex-start",
+                    }}>
+                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                        <circle cx="7.5" cy="7.5" r="6.5" stroke="#d97706" strokeWidth="1.2" />
+                        <line x1="7.5" y1="4.5" x2="7.5" y2="8" stroke="#d97706" strokeWidth="1.2" strokeLinecap="round" />
+                        <circle cx="7.5" cy="10.5" r="0.7" fill="#d97706" />
+                      </svg>
+                      <div>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 2 }}>Action required</p>
+                        <p style={{ fontSize: 12, color: "#b45309", lineHeight: 1.5 }}>
+                          Go to the Review page, read through AI-generated emails, make edits if needed, then click Approve.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: "14px 24px", borderTop: "1px solid #f1f5f9",
+                    background: "#fafaf8", display: "flex", gap: 8,
+                  }}>
+                    <button
+                      onClick={() => setLaunchModal(false)}
+                      style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "1px solid #e5e7eb", background: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => nav(`/review/${id}`)}
+                      style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "1px solid #fcd34d", background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                    >
+                      Go to Review Page →
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── STATE: CONFIRM LAUNCH ── */}
+              {approvedCount > 0 && launchState === "confirm" && (
+                <>
+                  <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f1f5f9" }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      background: "#eff6ff", display: "flex",
+                      alignItems: "center", justifyContent: "center", marginBottom: 14,
+                    }}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10L8 14L16 6" stroke="#2563eb" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                    <p style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 4 }}>Ready to launch</p>
+                    <p style={{ fontSize: 13, color: "#6b7280" }}>Review your send summary before confirming.</p>
+                  </div>
+                  <div style={{ padding: "16px 24px" }}>
+                    <div style={{ background: "#fafaf8", borderRadius: 10, padding: "4px 14px", marginBottom: 14 }}>
+                      {[
+                        { label: "Approved prospects", value: approvedCount },
+                        { label: "Sending to", value: "your Gmail (test mode)" },
+                        { label: "Mode", value: "Test mode" },
+                        { label: "Delay between sends", value: "2 seconds" },
+                        { label: "Est. time", value: `~${approvedCount * 2} seconds` },
+                      ].map(row => (
+                        <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
+                          <span style={{ color: "#6b7280" }}>{row.label}</span>
+                          <span style={{
+                            fontWeight: 600, color: row.label === "Mode" ? "#92400e" : row.label === "Sending to" ? "#2563eb" : "#111827",
+                            background: row.label === "Mode" ? "#fef3c7" : "transparent",
+                            padding: row.label === "Mode" ? "2px 8px" : 0,
+                            borderRadius: row.label === "Mode" ? 100 : 0,
+                            fontSize: row.label === "Mode" ? 11 : 13,
+                          }}>
+                            {row.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ background: "#eff6ff", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#1e40af", lineHeight: 1.5 }}>
+                      Each email subject will show the intended prospect so you can verify personalization.
+                    </div>
+                  </div>
+                  <div style={{
+                    padding: "14px 24px", borderTop: "1px solid #f1f5f9",
+                    background: "#fafaf8", display: "flex", gap: 8,
+                  }}>
+                    <button
+                      onClick={() => { setLaunchModal(false); setLaunchState("confirm"); }}
+                      style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid #e5e7eb", background: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleLaunch}
+                      disabled={launching}
+                      style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#111827", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", opacity: launching ? 0.7 : 1 }}
+                    >
+                      {launching ? "Launching…" : "Launch campaign"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ── STATE: SENDING / DONE ── */}
+              {(launchState === "sending" || launchState === "done") && (
+                <>
+                  <div style={{ padding: "24px 24px 20px", borderBottom: "1px solid #f1f5f9" }}>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                      {launchState === "done" ? (
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10L8 14L16 6" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid #e5e7eb", borderTopColor: "#111827", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+                      )}
+                      <div>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 2 }}>
+                          {launchState === "done" ? "All emails sent!" : "Sending emails…"}
+                        </p>
+                        <p style={{ fontSize: 12, color: "#6b7280" }}>
+                          {launchState === "done"
+                            ? "Campaign is live. Check your Gmail inbox."
+                            : "Keep this window open until complete."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div style={{ background: "#f1f5f9", borderRadius: 100, height: 5, overflow: "hidden", marginBottom: 8 }}>
+                      <div style={{
+                        height: "100%", background: launchState === "done" ? "#16a34a" : "#111827",
+                        borderRadius: 100,
+                        width: `${totalToSend > 0 ? Math.round((sentCount / totalToSend) * 100) : 0}%`,
+                        transition: "width 0.5s ease",
+                      }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9ca3af", marginBottom: 16 }}>
+                      <span>{sentCount} of {totalToSend} sent</span>
+                      <span>{totalToSend > 0 ? Math.round((sentCount / totalToSend) * 100) : 0}%</span>
+                    </div>
+
+                    {/* Prospect list */}
+                    <div style={{
+                      border: "1px solid #e8e6e1", borderRadius: 10,
+                      overflow: "hidden", maxHeight: 220, overflowY: "auto",
+                    }}>
+                      {pros.filter(p => p.email_status === "approved" && p.status === "not_contacted").map((p, i) => {
+                        const done = i < sentCount;
+                        const active = i === sentCount && launchState === "sending";
+                        return (
+                          <div key={p.id} style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            padding: "9px 14px",
+                            borderBottom: "1px solid #f5f5f3",
+                            background: active ? "#fafbff" : "white",
+                            transition: "background 0.2s",
+                          }}>
+                            {/* Status icon */}
+                            <div style={{
+                              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              background: done ? "#dcfce7" : active ? "#eff6ff" : "#f8f8f8",
+                              border: `1px solid ${done ? "#86efac" : active ? "#bfdbfe" : "#e5e7eb"}`,
+                              fontSize: 10,
+                              color: done ? "#16a34a" : active ? "#2563eb" : "#9ca3af",
+                            }}>
+                              {done ? "✓" : active ? (
+                                <div style={{
+                                  width: 8, height: 8, borderRadius: "50%",
+                                  border: "1.5px solid #2563eb",
+                                  borderTopColor: "transparent",
+                                  animation: "spin 0.6s linear infinite",
+                                }} />
+                              ) : <span style={{ fontSize: 9 }}>{i + 1}</span>}
+                            </div>
+
+                            {/* Name */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: 12, fontWeight: active ? 600 : 400,
+                                color: done ? "#9ca3af" : active ? "#111827" : "#6b7280",
+                                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                              }}>
+                                {p.name || p.email}
+                              </div>
+                              <div style={{ fontSize: 10, color: "#b8b8b0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {p.email}
+                              </div>
+                            </div>
+
+                            {/* Status label */}
+                            <span style={{
+                              fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 100,
+                              background: done ? "#dcfce7" : active ? "#eff6ff" : "#f1f5f9",
+                              color: done ? "#16a34a" : active ? "#2563eb" : "#94a3b8",
+                              flexShrink: 0,
+                            }}>
+                              {done ? "Sent" : active ? "Sending…" : "Queued"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{
+                    padding: "14px 24px", borderTop: "1px solid #f1f5f9",
+                    background: "#fafaf8", display: "flex", gap: 8, alignItems: "center",
+                  }}>
+                    {launchState === "sending" ? (
+                      <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", width: "100%" }}>
+                        {totalToSend - sentCount} email{totalToSend - sentCount !== 1 ? "s" : ""} remaining · ~{(totalToSend - sentCount) * 2}s left
+                      </p>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => { setLaunchModal(false); setLaunchState("confirm"); }}
+                          style={{ padding: "9px 20px", borderRadius: 9, border: "1px solid #e5e7eb", background: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                        >
+                          Close
+                        </button>
+                        <button
+                          onClick={() => { setLaunchModal(false); setLaunchState("confirm"); nav(`/review/${id}`); }}
+                          style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "1px solid #86efac", background: "#dcfce7", color: "#166534", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                        >
+                          View prospects →
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

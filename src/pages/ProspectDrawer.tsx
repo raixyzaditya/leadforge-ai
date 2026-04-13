@@ -66,16 +66,24 @@ export const ProspectDrawer = ({ prospectId, onClose }: Props) => {
         setLoading(true);
         setTab("overview");
         setEditing(false);
-        axios
-            .get(`http://localhost:${PORT}/prospects/get_pros/${prospectId}`)
-            .then((res) => {
-                const p = res.data.prospect;
-                setProspect(p);
-                setEditSubject(p.email_subject || "");
-                setEditBody(p.email_body || "");
-            })
-            .catch((err) => console.error("Failed to fetch prospect:", err))
-            .finally(() => setLoading(false));
+
+        const fetchProspect = () => {
+            axios
+                .get(`http://localhost:${PORT}/prospects/get_pros/${prospectId}`)
+                .then((res) => {
+                    const p = res.data.prospect;
+                    setProspect(p);
+                    setEditSubject(p.email_subject || "");
+                    setEditBody(p.email_body || "");
+                })
+                .catch((err) => console.error("Failed to fetch prospect:", err))
+                .finally(() => setLoading(false));
+        };
+
+        fetchProspect();
+        const poll = setInterval(fetchProspect, 5000); // re-fetch every 5s
+
+        return () => clearInterval(poll); // stop polling when drawer closes
     }, [prospectId]);
 
     // Sync edit fields when prospect changes

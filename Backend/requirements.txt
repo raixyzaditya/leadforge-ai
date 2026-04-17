@@ -1,0 +1,7 @@
+dotenv
+anthropic
+beautifulsoup4
+trafilatura
+urllib
+tldextract
+requests
